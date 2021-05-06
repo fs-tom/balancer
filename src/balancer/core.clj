@@ -151,3 +151,37 @@
           :decay (ann/geometric-decay 0.95)
           :equilibration 100)
       :best-solution))
+
+
+(comment
+
+  ;;(def init (initial-solution 300000 src-data ))
+  ;; balancer.core> (def init (initial-solution 300000 src-data ))
+  ;; #'balancer.core/init
+  ;; balancer.core> (def res (optimize-structure init))
+  ;; #'balancer.core/res
+  ;; balancer.core> (cost res)
+  ;; 171670.5836140001
+  ;; balancer.core> (def res (optimize-structure init))
+  ;; #'balancer.core/res
+  ;; balancer.core> (cost res)
+  ;; 168419.6012639999
+  ;; balancer.core> (def res (optimize-structure init))
+  ;; #'balancer.core/res
+  ;; balancer.core> (cost res)
+  ;; 172779.8828390001
+  ;; balancer.core> (def init-packed (initial-solution 300000 src-data :init-choices (pack src-data 300000)))
+  ;; #'balancer.core/init-packed
+  ;; balancer.core> (def res (optimize-structure init-packed))
+  ;; #'balancer.core/res
+  ;; balancer.core> (cost res)
+  ;; 172783.69851500003
+  ;; balancer.core> (def res (optimize-structure init-packed))
+  ;; #'balancer.core/res
+  ;; balancer.core> (cost res)
+  ;; 174032.08194400003
+  ;; balancer.core> (def res (optimize-structure init-packed))
+  ;; #'balancer.core/res
+  ;; balancer.core> (cost res)
+  ;; 173864.5783999999
+)
