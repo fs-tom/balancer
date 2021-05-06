@@ -5,6 +5,8 @@
             [clojure.core.logic :refer :all :as l]
             [clojure.core.logic.fd :as fd]))
 
+;;assumes you have data.csv in the project root, kind of lame at the moment.
+;;should generalize loading parameters.
 (def src-data
   (into {}
         (for [[src xs]  (->> (tbl/tabdelimited->records "data.csv")
@@ -12,8 +14,6 @@
                              (group-by :SRC))]
           [src {:STR        (-> xs first :STR)
                 :quantities (into {} (mapv #(vector (:Qty %) (select-keys % [:Score :Excess])) xs))}])))
-
-;;Our solution will be a set of SRCs
 
 (def srcs (keys src-data))
 
@@ -23,10 +23,6 @@
     (->> (for [[q m] (d :quantities)]
            [q (merge {:total-strength (* q str)} m)])
          (into {}))))
-
-(defn score  [src qty]   (-> src choices (get qty) :Score))
-(defn excess [src qty]   (-> src choices (get qty) :Excess))
-(defn src-strength [src qty]  (-> src src-data :STR (* qty)))
 
 ;;a solution is just a map of
 ;;{:choices src->quantity :total-strength n}
@@ -90,7 +86,10 @@
         [src {:var (lvar) :lower  (first qs) :upper (last qs) :STR STR}]))))
 
 
-;;smart packing using finite domain constraints.
+;;smart packing using finite domain constraints
+;;and constraint logic programming; more of a party trick
+;;at the moment, but has some useful extensions e.g. for
+;;finding feasible neighborhoods.
 (defn productsumo [vars dens sum]
   (fresh [vhead vtail dhead dtail product run-sum]
     (conde
@@ -120,23 +119,26 @@
            (productsumo vars costs amount))
          first)))
 
-;;very dumb initial solution.
+;;very dumb initial solution.  random choices (likely infeasible),
+;;or user can supply their own initial choices, like using the packed
+;;implementation.
 (defn initial-solution [target src-data & {:keys [init-choices]}]
   ;;random initial solution for now.
   (let [choices (or init-choices
                     (reduce-kv (fn [acc src {:keys [quantities]}]
                                  (assoc acc src (rand-nth (keys quantities)))) {} src-data))
         {:keys [score excess]} (total-fill-scores choices src-data)]
-    {:choices choices
+    {:choices choices  ;;{src quantity}
      :variables (vec (for [[src {:keys [quantities]}] src-data
                            :when (not= (count quantities) 1)]
-                       src))
-     :src-data       src-data
-     :total-score    score
-     :total-excess   excess
-     :total-strength (total-strength src-data choices)
+                       src))  ;;srcs that aren't singular.
+     :src-data       src-data ;;original src-data parameters
+     :total-score    score    ;;incrementally computed total fill score
+     :total-excess   excess   ;;incrementally computed total excess score
+     :total-strength (total-strength src-data choices) ;;incrementally computed total end strength.
      :target target}))
 
+;;objective function.
 (defn cost [sol]
   (+ (* -100000 (Math/abs (strength-deviation sol)))
      (* 1000 (sol :total-score))
@@ -146,10 +148,12 @@
 ;;do some solving...
 
 (defn optimize-structure [init]
-  (-> (da/simple-anneal (comp - cost) init
-          :step-function (fn step [_ sol] (random-move sol))
-          :decay (ann/geometric-decay 0.95)
-          :equilibration 100)
+  (-> (da/simple-anneal
+       (comp - cost) ;;negative the cost function to make this a maximization.
+       init
+       :step-function (fn step [_ sol] (random-move sol))
+       :decay (ann/geometric-decay 0.95)
+       :equilibration 100)
       :best-solution))
 
 
