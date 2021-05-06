@@ -61,13 +61,7 @@
   (let [src        (rand-nth variables)
         qty        (choices src)
         neighbors  (-> src src-data :quantities)
-        n         (loop [n (rand-nth (keys neighbors))
-                         idx 0]
-                    (if (= n qty)
-                      (if (> idx 4)
-                        (throw (ex-info "too many flips...." {:src src :qty qty}))
-                        (recur (rand-nth (keys neighbors)) (unchecked-inc idx)))
-                      n))]
+        n          (rand-nth (keys (dissoc neighbors qty)))]
     [src n (incremental-cost sol src qty n)]))
 
 (defn incremental-cost->total-cost
@@ -82,7 +76,7 @@
         new-info (incremental-cost->total-cost sol mv)]
     (-> sol
         (merge new-info)
-        (assoc-in [choices src] n))))
+        (assoc-in [:choices src] n))))
 
 (defn cost-info [sol]
   (select-keys sol [:total-score :total-excess :total-strength]))
@@ -144,38 +138,16 @@
      :target target}))
 
 (defn cost [sol]
-  (+ (* -100 (strength-deviation sol))
-     (* 10 (sol :total-score))
-     (sol :total-excess)))
-#_
-(let [items {:green  {:value 4 :weight  12}
-             :grey   {:value 2 :weight  1}
-             :blue   {:value 2 :weight  2}
-             :orange {:value 1 :weight  1}
-             :yellow {:value 10 :weight 4}}
-      ks    (vec (keys items))
-      max-weight 15
-      init-pack  {:weight 0 :items #{} :value 0}
-      cost  (fn [pack]
-              ( + (:value pack)
-                  ( * -100 (Math/abs (- max-weight (:weight pack))))))
-      random-step (fn [_ pack]
-                    (let [item    (rand-nth ks)
-                          loaded  (pack :items)
-                          weight  (pack :weight)
-                          value   (pack :value)]
-                      (if (loaded item)
-                        {:weight (- weight (-> item items :weight))
-                         :value  (- value  (-> item items :value))
-                         :items  (disj loaded item)}
-                        {:weight (+ weight (-> item items :weight))
-                         :value  (+ value  (-> item items :value))
-                         :items  (conj loaded item)})))]
-  (-> (da/simple-anneal (comp - cost)
-                     init-pack
-                     :decay (ann/geometric-decay 0.8)
-                     :equilibration 30
-                     :step-function random-step
-                     )
-      :best-solution))
+  (+ (* -100000 (Math/abs (strength-deviation sol)))
+     (* 1000 (sol :total-score))
+     (* 0.1  (sol :total-excess))))
 
+;;so we have an initial solution, a cost function, and now we can
+;;do some solving...
+
+(defn optimize-structure [init]
+  (-> (da/simple-anneal (comp - cost) init
+          :step-function (fn step [_ sol] (random-move sol))
+          :decay (ann/geometric-decay 0.95)
+          :equilibration 100)
+      :best-solution))
