@@ -157,6 +157,32 @@
       :best-solution))
 
 
+;;we can compute a legacy solution.
+;;basically start with the highest possible values (or some assumed
+;;selection of current values), and cut via an ordered reduction
+;;from the src data, accumulating str until a goal is met.
+
+(defn legacy-choices [src-data target]
+  (let [initial-choices (into {}
+                           (for [[src {:keys [quantities]}] src-data]
+                             [src (reduce max (keys quantities))]))
+        initial-strength (total-strength src-data initial-choices)
+        cut         (- initial-strength target)
+        _ (println {:initial initial-strength :target target :cut cut})
+        cumulative (atom 0)
+        ]
+   (->> (for [[src {:keys [STR quantities]}] src-data
+               [n score-excess] quantities]
+           (merge {:SRC src :STR STR :quantity n} score-excess))
+         (sort-by (juxt (comp - :Score) (comp - :Excess)))
+         (map (fn [r] (assoc r :cumulative (swap! cumulative + (r :STR)))))
+         (take-while (fn [r]  (< (r :cumulative) cut)))
+         (reduce (fn [choices {:keys [SRC quantity STR]}]
+                   ;;if we're using the shifted results, we actually have qty - 1
+                   (assoc choices SRC (dec quantity))) {})
+         (assoc {} :initial initial-choices :cuts))))
+
+
 (comment
 
   ;;(def init (initial-solution 300000 src-data ))
